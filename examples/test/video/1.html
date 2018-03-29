@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>three.js webgl - equirectangular video panorama</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+    <style>
+        body {
+            background-color: #000000;
+            margin: 0px;
+            overflow: hidden;
+        }
+
+        #info {
+            position: absolute;
+            top: 0px;
+            width: 100%;
+            color: #ffffff;
+            padding: 5px;
+            font-family: Monospace;
+            font-size: 13px;
+            font-weight: bold;
+            text-align: center;
+        }
+
+        a {
+            color: #ffffff;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="container"></div>
+
+    <script src="js/three.js"></script>
+
+    <script>
+
+
+			var camera, scene, renderer, texture, video, hasInit, lastRefresh;
+
+			var texture_placeholder,
+			isUserInteracting = false,
+			onMouseDownMouseX = 0, onMouseDownMouseY = 0,
+			lon = 0, onMouseDownLon = 0,
+			lat = 0, onMouseDownLat = 0,
+			phi = 0, theta = 0,
+			distance = 500;
+
+			var videoWidth, videoHeight;
+
+			initVideo();
+			//init();
+
+
+
+			function initVideo() {
+				video = document.createElement( 'video' );
+				video.width = 640;
+				video.height = 360;
+
+				video.loop = true;
+				//video.muted = true;
+				video.crossOrigin = "anonymous";
+
+				video.src = "https://manifest.googlevideo.com/api/manifest/hls_playlist/id/fiMmK8Qia3M.1/itag/301/source/yt_live_broadcast/requiressl/yes/ratebypass/yes/live/1/cmbypass/yes/goi/160/sgoap/gir%3Dyes%3Bitag%3D140/sgovp/gir%3Dyes%3Bitag%3D299/hls_chunk_host/r4---sn-8qj-8ppd.googlevideo.com/playlist_type/DVR/gcr/vn/ei/skO9WrK8HMOhqQGA3oIw/mm/32/mn/sn-8qj-8ppd/ms/lv/mv/u/pl/23/dover/10/keepalive/yes/mt/1522352164/ip/14.235.118.90/ipbits/0/expire/1522374674/sparams/ip,ipbits,expire,id,itag,source,requiressl,ratebypass,live,cmbypass,goi,sgoap,sgovp,hls_chunk_host,playlist_type,gcr,ei,mm,mn,ms,mv,pl/signature/65BDE0ADB281C9E080729B4316C387759A2F2D74.646032F95804D70BA1DB21CB29EB1868E0E5F4AE/key/dg_yt0/playlist/index.m3u8";
+
+				video.setAttribute("preload", "metadata");
+				video.setAttribute("playsinline", "");
+				video.setAttribute("webkit-playsinline", "");
+
+				video.addEventListener("loadeddata", init);
+				video.addEventListener("play", animate);
+				video.load();
+			}
+
+			function init() {
+
+
+				if (hasInit) return;
+
+				hasInit = true;
+
+				videoWidth = video.width;
+				videoHeight = video.height;
+
+				var container, mesh;
+
+				container = document.getElementById( 'container' );
+
+				container.addEventListener( 'click', function () {
+					//console.log("CLICK");
+
+					video.play();
+
+				} );
+
+				//container.appendChild( video );
+
+
+				camera = new THREE.PerspectiveCamera( 90, videoWidth / videoHeight, 1, 1100 );
+				camera.target = new THREE.Vector3( 0, 0, 0 );
+				camera.zoom = 1;
+				camera.rotation.reorder('YXZ');
+				camera.layers.enable(1);
+				camera.position.x = (Math.PI / 2);
+				scene = new THREE.Scene();
+
+				var geometry = new THREE.SphereBufferGeometry( 500, 64, 44 );
+				geometry.scale( - 1, 1, 1 );
+
+				texture = new THREE.VideoTexture( video );
+				texture.minFilter = THREE.LinearFilter;
+				texture.format = THREE.RGBFormat;
+				//texture.format = THREE.RGBAFormat;
+				texture.magFilter = THREE.LinearFilter;
+				texture.generateMipmaps = false;
+				//texture.flipY = false;
+
+				var material  = new THREE.MeshBasicMaterial( { map : texture } );
+
+
+				mesh = new THREE.Mesh( geometry, material );
+
+				scene.add( mesh );
+
+				renderer = new THREE.WebGLRenderer();
+				renderer.setPixelRatio( window.devicePixelRatio );
+
+				//renderer.setSize( window.innerWidth, window.innerHeight );
+				container.appendChild( renderer.domElement );
+
+				document.addEventListener( 'mousedown', onDocumentMouseDown, false );
+				document.addEventListener( 'mousemove', onDocumentMouseMove, false );
+				document.addEventListener( 'mouseup', onDocumentMouseUp, false );
+				document.addEventListener( 'wheel', onDocumentMouseWheel, false );
+
+				//
+
+				window.addEventListener( 'resize', onWindowResize, false );
+
+				onWindowResize();
+
+				animate();
+				//onVideoResize();
+			}
+
+			function onVideoResize() {
+
+				camera.aspect = videoWidth / videoHeight;
+				camera.updateProjectionMatrix();
+
+				renderer.setSize( videoWidth , videoHeight);
+
+			}
+
+			function onWindowResize() {
+
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+
+				renderer.setSize( window.innerWidth, window.innerHeight );
+
+			}
+
+			function onDocumentMouseDown( event ) {
+
+				event.preventDefault();
+
+				isUserInteracting = true;
+
+				onPointerDownPointerX = event.clientX;
+				onPointerDownPointerY = event.clientY;
+
+				onPointerDownLon = lon;
+				onPointerDownLat = lat;
+
+			}
+
+			function onDocumentMouseMove( event ) {
+
+				if ( isUserInteracting === true ) {
+
+					lon = ( onPointerDownPointerX - event.clientX ) * 0.1 + onPointerDownLon;
+					lat = ( event.clientY - onPointerDownPointerY ) * 0.1 + onPointerDownLat;
+
+				}
+
+			}
+
+			function onDocumentMouseUp( event ) {
+
+				isUserInteracting = false;
+
+			}
+
+			function onDocumentMouseWheel( event ) {
+
+				distance += event.deltaY * 0.05;
+
+			}
+
+			function animate() {
+				requestAnimationFrame( animate );
+				update();
+
+			}
+
+
+			function update() {
+
+
+
+				texture.needsUpdate = true;
+
+				lat = Math.max( - 85, Math.min( 85, lat ) );
+				phi = THREE.Math.degToRad( 90 - lat );
+				theta = THREE.Math.degToRad( lon );
+
+
+				if (!camera) return;
+
+				if (!renderer) return;
+
+				camera.position.x = distance * Math.sin( phi ) * Math.cos( theta );
+				camera.position.y = distance * Math.cos( phi );
+				camera.position.z = distance * Math.sin( phi ) * Math.sin( theta );
+
+				camera.lookAt( camera.target );
+
+				renderer.render( scene, camera );
+
+			}
+
+    </script>
+</body>
+</html>
